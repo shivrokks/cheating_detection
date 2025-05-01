@@ -1,0 +1,4 @@
+sun halwe,
+./.venv/scripts/activate likh terminal me
+python main.py likh
+marks lele
