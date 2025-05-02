@@ -39,12 +39,22 @@ yaw_history = deque(maxlen=ANGLE_HISTORY_SIZE)
 pitch_history = deque(maxlen=ANGLE_HISTORY_SIZE)
 roll_history = deque(maxlen=ANGLE_HISTORY_SIZE)
 
+# For rapid movement detection
+MOVEMENT_HISTORY_SIZE = 5
+yaw_movement_history = deque(maxlen=MOVEMENT_HISTORY_SIZE)
+pitch_movement_history = deque(maxlen=MOVEMENT_HISTORY_SIZE)
+roll_movement_history = deque(maxlen=MOVEMENT_HISTORY_SIZE)
+last_angles = None
+rapid_movement_threshold = 8.0  # Degrees per frame threshold for rapid movement
+
 # Global variables for state management
 previous_state = "Looking at Screen"
 calibrated_angles = None
+rapid_movement_detected = False
+last_rapid_movement_time = 0
 
 def get_head_pose_angles(image_points):
-    success, rotation_vector, translation_vector = cv2.solvePnP(
+    success, rotation_vector, _ = cv2.solvePnP(
         model_points, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE
     )
     if not success:
@@ -69,12 +79,35 @@ def smooth_angle(angle_history, new_angle):
     angle_history.append(new_angle)
     return np.mean(angle_history)
 
+def detect_rapid_movement(current_angles, last_angles):
+    """Detect if there is rapid head movement between frames"""
+    if last_angles is None:
+        return False
+
+    pitch_diff = abs(current_angles[0] - last_angles[0])
+    yaw_diff = abs(current_angles[1] - last_angles[1])
+    roll_diff = abs(current_angles[2] - last_angles[2])
+
+    # Store movement rates for analysis
+    yaw_movement_history.append(yaw_diff)
+    pitch_movement_history.append(pitch_diff)
+    roll_movement_history.append(roll_diff)
+
+    # Check if any angle changed rapidly
+    return (pitch_diff > rapid_movement_threshold or
+            yaw_diff > rapid_movement_threshold or
+            roll_diff > rapid_movement_threshold)
+
 def process_head_pose(frame, calibrated_angles=None):
-    global previous_state
+    global previous_state, last_angles, rapid_movement_detected, last_rapid_movement_time
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = detector(gray)
     head_direction = "Looking at Screen"
+
+    # Reset rapid movement flag if it's been a while
+    if rapid_movement_detected and time.time() - last_rapid_movement_time > 1.0:
+        rapid_movement_detected = False
 
     for face in faces:
         landmarks = predictor(gray, face)
@@ -95,10 +128,47 @@ def process_head_pose(frame, calibrated_angles=None):
         yaw = smooth_angle(yaw_history, angles[1])
         roll = smooth_angle(roll_history, angles[2])
 
+        current_angles = (pitch, yaw, roll)
+
+        # Store angles for external access
+        process_head_pose.last_pitch = pitch
+        process_head_pose.last_yaw = yaw
+        process_head_pose.last_roll = roll
+
+        # Detect rapid head movement
+        if last_angles is not None:
+            if detect_rapid_movement(current_angles, last_angles):
+                rapid_movement_detected = True
+                last_rapid_movement_time = time.time()
+
+                # Calculate average movement rates
+                avg_yaw_movement = np.mean(yaw_movement_history)
+                avg_pitch_movement = np.mean(pitch_movement_history)
+                avg_roll_movement = np.mean(roll_movement_history)
+
+                # Store movement rates for external access
+                process_head_pose.last_yaw_rate = avg_yaw_movement
+                process_head_pose.last_pitch_rate = avg_pitch_movement
+                process_head_pose.last_roll_rate = avg_roll_movement
+
+                # Draw movement rates on frame
+                cv2.putText(frame, f"Yaw Rate: {avg_yaw_movement:.2f}",
+                           (face.left(), face.bottom() + 40),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+                cv2.putText(frame, f"Pitch Rate: {avg_pitch_movement:.2f}",
+                           (face.left(), face.bottom() + 60),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+                cv2.putText(frame, f"Roll Rate: {avg_roll_movement:.2f}",
+                           (face.left(), face.bottom() + 80),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
+        # Update last angles for next frame
+        last_angles = current_angles
+
         # If calibrating, return the current angles as calibrated_angles
         if calibrated_angles is None:
             return frame, (pitch, yaw, roll)
-        
+
         calibrated_angles = (0, 0, 0)
 
         # Use calibrated angles for head pose detection
@@ -111,7 +181,9 @@ def process_head_pose(frame, calibrated_angles=None):
         ROLL_THRESHOLD = 5
 
         # Determine head direction
-        if abs(yaw - yaw_offset) <= YAW_THRESHOLD and abs(pitch - pitch_offset) <= PITCH_THRESHOLD and abs(roll - roll_offset) <= ROLL_THRESHOLD:
+        if rapid_movement_detected:
+            current_state = "Rapid Movement"
+        elif abs(yaw - yaw_offset) <= YAW_THRESHOLD and abs(pitch - pitch_offset) <= PITCH_THRESHOLD and abs(roll - roll_offset) <= ROLL_THRESHOLD:
             current_state = "Looking at Screen"
         elif yaw < yaw_offset - 15:
             current_state = "Looking Left"
@@ -128,5 +200,13 @@ def process_head_pose(frame, calibrated_angles=None):
 
         previous_state = current_state
         head_direction = current_state
+
+        # Draw head pose angles on frame
+        cv2.putText(frame, f"Pitch: {pitch:.2f}", (face.left(), face.top() - 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        cv2.putText(frame, f"Yaw: {yaw:.2f}", (face.left(), face.top() - 15),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        cv2.putText(frame, f"Roll: {roll:.2f}", (face.left(), face.top() - 0),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
     return frame, head_direction
