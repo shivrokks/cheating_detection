@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import time
 
-# Load pre-trained person detection model (HOG + SVM)
 hog = cv2.HOGDescriptor()
 hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
