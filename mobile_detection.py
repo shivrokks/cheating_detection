@@ -4,7 +4,7 @@ from ultralytics import YOLO
 
 # Load trained YOLO model
 model = YOLO("./model/best_yolov12.pt")
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cpu"  # Force CPU
 model.to(device)
 
 def process_mobile_detection(frame):

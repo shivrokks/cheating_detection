@@ -12,9 +12,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class AudioDetection:
-    def __init__(self):
+    def __init__(self, device_index=None):  # Added device_index parameter
         self.recognizer = sr.Recognizer()
-        self.microphone = sr.Microphone()
+        # Use specified device_index if provided, otherwise use default
+        self.microphone = sr.Microphone(device_index=device_index)
         self.audio_queue = queue.Queue()
         self.is_listening = False
         self.detection_thread = None
@@ -123,7 +124,7 @@ class AudioDetection:
         try:
             with self.microphone as source:
                 print("Adjusting microphone for ambient noise...")
-                self.recognizer.adjust_for_ambient_noise(source, duration=1)
+                self.recognizer.adjust_for_ambient_noise(source, duration=2)  # Increased duration from 1 to 2
                 print("Microphone initialized successfully")
         except Exception as e:
             print(f"Error initializing microphone: {e}")
@@ -163,64 +164,92 @@ class AudioDetection:
                 time.sleep(0.5)
     
     def process_audio(self):
-        """Process audio from queue and detect suspicious content"""
-        suspicious_score = 0
-        detected_text = ""
-        suspicious_words = []
+        # Initialize overall results for this call
+        final_is_suspicious = False
+        final_suspicion_score = 0
+        final_detected_text = ""
+        final_suspicious_words = []
         
+        any_audio_transcribed_in_this_call = False # Flag to check if any speech was transcribed
+
         # Process all audio in queue
         while not self.audio_queue.empty():
             try:
                 audio = self.audio_queue.get_nowait()
+                text_this_chunk = ""
                 
-                # Convert speech to text using Google API key if available
-                if self.google_api_key:
-                    text = self.recognizer.recognize_google(audio, key=self.google_api_key, language='en-US').lower()
-                else:
-                    text = self.recognizer.recognize_google(audio, language='en-US').lower()
+                # Convert speech to text
+                try:
+                    if self.google_api_key:
+                        try:
+                            # Try with API key first
+                            text_this_chunk = self.recognizer.recognize_google(audio, key=self.google_api_key, language='en-US').lower()
+                        except sr.RequestError as api_error:
+                            print(f"API key recognition failed: {api_error}, falling back to free service")
+                            # Fall back to free service
+                            text_this_chunk = self.recognizer.recognize_google(audio, language='en-US').lower()
+                    else:
+                        text_this_chunk = self.recognizer.recognize_google(audio, language='en-US').lower()
+                except sr.UnknownValueError:
+                    # Could not understand audio for this chunk, continue to next item
+                    continue 
+                except sr.RequestError as e:
+                    print(f"Speech recognition error for chunk: {e}")
+                    continue # to next item
+
+                # If text was transcribed from this chunk
+                if text_this_chunk:
+                    any_audio_transcribed_in_this_call = True # Mark that audio was heard
+                    
+                    if not final_detected_text: # Store the first detected text for the result
+                        final_detected_text = text_this_chunk
+                    
+                    self.audio_history.append((time.time(), text_this_chunk))
+                    
+                    # Analyze text for suspicious content (keywords)
+                    score_from_keywords, words_from_keywords = self._analyze_text_for_cheating(text_this_chunk)
+                    final_suspicion_score = max(final_suspicion_score, score_from_keywords)
+                    final_suspicious_words.extend(words_from_keywords)
+                    
+                    print(f"Detected speech: '{text_this_chunk}' (Keyword score: {score_from_keywords})")
                 
-                detected_text = text
-                self.audio_history.append((time.time(), text))
-                
-                # Analyze text for suspicious content
-                score, words = self._analyze_text_for_cheating(text)
-                suspicious_score = max(suspicious_score, score)
-                suspicious_words.extend(words)
-                
-                print(f"Detected speech: '{text}' (Suspicion score: {score})")
-                
-            except sr.UnknownValueError:
-                # Could not understand audio
-                continue
-            except sr.RequestError as e:
-                print(f"Speech recognition error: {e}")
-                continue
             except queue.Empty:
                 break
+            except Exception as e: # General exception for queue processing
+                print(f"Error processing audio queue item: {e}")
+                continue
         
-        # Check recent history for patterns
-        pattern_score = self._check_suspicious_patterns()
-        suspicious_score = max(suspicious_score, pattern_score)
+        # Core logic: if any audio was transcribed, it's considered "cheating"
+        if any_audio_transcribed_in_this_call:
+            final_is_suspicious = True
+            final_suspicion_score = max(final_suspicion_score, 5) # Ensure score is at least 5
+
+        # Check recent history for patterns ONLY if no direct audio was transcribed
+        if not any_audio_transcribed_in_this_call:
+            pattern_score = self._check_suspicious_patterns()
+            if pattern_score >= 3: # Threshold for pattern to be suspicious
+                final_is_suspicious = True 
+                final_suspicion_score = max(final_suspicion_score, pattern_score)
+                if not final_detected_text: 
+                    final_detected_text = "Suspicious audio pattern detected"
         
-        # Determine if behavior is suspicious
-        is_suspicious = suspicious_score >= 3
-        
-        if is_suspicious:
+        # Add to suspicious_detections list if overall suspicious
+        if final_is_suspicious:
             current_time = time.time()
             if current_time - self.last_detection_time >= self.detection_cooldown:
                 self.suspicious_detections.append({
                     'time': current_time,
-                    'text': detected_text,
-                    'score': suspicious_score,
-                    'words': suspicious_words
+                    'text': final_detected_text,
+                    'score': final_suspicion_score,
+                    'words': list(set(final_suspicious_words)) # Make words unique
                 })
                 self.last_detection_time = current_time
         
         return {
-            'is_suspicious': is_suspicious,
-            'suspicion_score': suspicious_score,
-            'detected_text': detected_text,
-            'suspicious_words': suspicious_words,
+            'is_suspicious': final_is_suspicious,
+            'suspicion_score': final_suspicion_score,
+            'detected_text': final_detected_text,
+            'suspicious_words': list(set(final_suspicious_words)), # Make words unique
             'recent_detections': len(self.suspicious_detections)
         }
     
@@ -292,11 +321,19 @@ class AudioDetection:
 # Global audio detection instance
 audio_detector = None
 
-def initialize_audio_detection():
+def list_microphones():
+    """Prints a list of available microphone names and their indices."""
+    print("Available microphones:")
+    for index, name in enumerate(sr.Microphone.list_microphone_names()):
+        print(f"  Mic #{index}: {name}")
+
+def initialize_audio_detection(device_index=None):  # Added device_index parameter
     """Initialize global audio detection"""
     global audio_detector
     try:
-        audio_detector = AudioDetection()
+        list_microphones()  # Print available microphones
+        print(f"Attempting to use microphone with index: {device_index if device_index is not None else 'Default'}")
+        audio_detector = AudioDetection(device_index=device_index)
         audio_detector.start_listening()
         return True
     except Exception as e:
@@ -331,7 +368,19 @@ def draw_audio_info(frame, audio_result):
     
     # Draw main audio status
     status_color = (0, 0, 255) if audio_result['is_suspicious'] else (0, 255, 0)
-    status_text = "SUSPICIOUS AUDIO" if audio_result['is_suspicious'] else "Audio Normal"
+    
+    if audio_result['is_suspicious']:
+        # Check if the detected text is the specific pattern message
+        if audio_result['detected_text'] and audio_result['detected_text'] != "Suspicious audio pattern detected":
+            status_text = "CHEATING (Audio Detected)"
+        elif audio_result['detected_text'] == "Suspicious audio pattern detected":
+            status_text = "CHEATING (Audio Pattern)"
+        else: # Fallback if is_suspicious is true but text is empty or unexpected (e.g. only keyword match from empty string)
+             # With new logic, if is_suspicious is true, detected_text should ideally not be empty.
+            status_text = "CHEATING (Suspicious Audio)"
+    else:
+        status_text = "Audio Normal"
+        
     cv2.putText(frame, f"Audio: {status_text}", (20, y_offset), 
                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, status_color, 2)
     

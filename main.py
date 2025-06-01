@@ -21,7 +21,7 @@ os.makedirs(log_dir, exist_ok=True)
 
 # Initialize audio detection
 print("Initializing audio detection...")
-audio_initialized = initialize_audio_detection()
+audio_initialized = initialize_audio_detection(device_index=3)  # Try with Mic #3
 if audio_initialized:
     print("Audio detection initialized successfully")
 else:

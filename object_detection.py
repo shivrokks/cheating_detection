@@ -5,7 +5,7 @@ import time
 
 # Load pre-trained YOLO model for object detection
 model = YOLO("yolov8n.pt")  # Using the nano model for speed
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cpu"  # Force CPU
 model.to(device)
 
 # Define suspicious objects for exams
