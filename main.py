@@ -10,6 +10,7 @@ from facial_expression import process_facial_expression
 from person_detection import process_person_detection
 from object_detection import process_object_detection
 from behavior_analysis import process_behavior_analysis, load_training_data
+from audio_detection import initialize_audio_detection, process_audio_detection, draw_audio_info, cleanup_audio_detection
 
 # Initialize webcam
 cap = cv2.VideoCapture(0)
@@ -17,6 +18,14 @@ cap = cv2.VideoCapture(0)
 # Create a log directory for screenshots
 log_dir = "log"
 os.makedirs(log_dir, exist_ok=True)
+
+# Initialize audio detection
+print("Initializing audio detection...")
+audio_initialized = initialize_audio_detection()
+if audio_initialized:
+    print("Audio detection initialized successfully")
+else:
+    print("Warning: Audio detection failed to initialize")
 
 # Calibration for head pose
 calibrated_angles = None
@@ -30,6 +39,7 @@ talking_detection_start_time = None
 expression_detection_start_time = None
 person_detection_start_time = None
 object_detection_start_time = None
+audio_detection_start_time = None  # Add audio detection timer
 
 # Previous states
 previous_head_state = "Looking at Screen"
@@ -97,6 +107,18 @@ while True:
     # Process object detection
     frame, suspicious_objects, detected_objects = process_object_detection(frame)
 
+    # Process audio detection
+    audio_result = process_audio_detection() if audio_initialized else {
+        'is_suspicious': False,
+        'suspicion_score': 0,
+        'detected_text': '',
+        'suspicious_words': [],
+        'recent_detections': 0
+    }
+    
+    # Draw audio information on frame
+    frame = draw_audio_info(frame, audio_result)
+
     # Prepare data for behavior analysis
     head_data = {
         'direction': head_direction,
@@ -131,7 +153,7 @@ while True:
 
     # Process behavior analysis
     frame, behavior_result = process_behavior_analysis(
-        head_data, eye_data, lip_data, expression_data, person_data, object_data, frame
+        head_data, eye_data, lip_data, expression_data, person_data, object_data, frame, audio_result
     )
 
     # Extract behavior information
@@ -222,6 +244,20 @@ while True:
     else:
         object_detection_start_time = None  # Reset timer
 
+    # Check for suspicious audio
+    if audio_result['is_suspicious']:
+        if audio_detection_start_time is None:
+            audio_detection_start_time = time.time()
+        elif time.time() - audio_detection_start_time >= 2:
+            filename = os.path.join(log_dir, f"suspicious_audio_{int(time.time())}.png")
+            cv2.imwrite(filename, frame)
+            print(f"Screenshot saved: {filename}")
+            print(f"Detected suspicious speech: '{audio_result['detected_text']}'")
+            print(f"Suspicious words: {audio_result['suspicious_words']}")
+            audio_detection_start_time = None  # Reset timer
+    else:
+        audio_detection_start_time = None  # Reset timer
+
     # Check for suspicious behavior
     if behavior == "Suspicious" and confidence > 0.6:
         if behavior_analysis_start_time is None:
@@ -257,6 +293,9 @@ if args.train:
     from behavior_analysis import save_training_data
     save_training_data()
     print("Training data saved")
+
+# Clean up audio detection resources
+cleanup_audio_detection()
 
 cap.release()
 cv2.destroyAllWindows()

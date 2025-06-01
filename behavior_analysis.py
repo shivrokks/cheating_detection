@@ -33,7 +33,7 @@ try:
 except Exception as e:
     print(f"Could not load behavior model: {e}")
 
-def extract_features(head_data, eye_data, lip_data, expression_data, person_data, object_data):
+def extract_features(head_data, eye_data, lip_data, expression_data, person_data, object_data, audio_data=None):
     """Extract features from various detection modules"""
     features = []
 
@@ -93,6 +93,15 @@ def extract_features(head_data, eye_data, lip_data, expression_data, person_data
     suspicious_objects = 1 if object_data.get('suspicious_objects', False) else 0
     object_count = len(object_data.get('detected_objects', {}))
 
+    # Audio detection features
+    audio_suspicious = 0
+    audio_score = 0
+    audio_detections = 0
+    if audio_data:
+        audio_suspicious = 1 if audio_data.get('is_suspicious', False) else 0
+        audio_score = audio_data.get('suspicion_score', 0)
+        audio_detections = audio_data.get('recent_detections', 0)
+
     # Combine all features
     features = [
         head_dir_value,
@@ -108,6 +117,9 @@ def extract_features(head_data, eye_data, lip_data, expression_data, person_data
         new_person,
         suspicious_objects,
         object_count,
+        audio_suspicious,
+        audio_score,
+        audio_detections,
         # Add time-based features
         time.time() % 86400 / 86400,  # Time of day normalized to [0,1]
         len(feature_history) / HISTORY_SIZE  # Progress through current session
@@ -175,12 +187,12 @@ def add_training_sample(features, is_suspicious):
         y = [l for _, l in feature_history]
         train_model(X, y)
 
-def process_behavior_analysis(head_data, eye_data, lip_data, expression_data, person_data, object_data, frame):
+def process_behavior_analysis(head_data, eye_data, lip_data, expression_data, person_data, object_data, frame, audio_data=None):
     """Process all detection data to analyze behavior"""
     global last_prediction_time
 
     # Extract features from all detection modules
-    features = extract_features(head_data, eye_data, lip_data, expression_data, person_data, object_data)
+    features = extract_features(head_data, eye_data, lip_data, expression_data, person_data, object_data, audio_data)
 
     # Add features to history
     behavior_history.append(features)
@@ -218,6 +230,13 @@ def process_behavior_analysis(head_data, eye_data, lip_data, expression_data, pe
             suspicious_count += 2
         if object_data.get('suspicious_objects', False):
             suspicious_count += 2
+        
+        # Add audio detection to rule-based system
+        if audio_data:
+            if audio_data.get('is_suspicious', False):
+                suspicious_count += audio_data.get('suspicion_score', 0) // 2  # Scale down audio score
+            if audio_data.get('recent_detections', 0) > 2:
+                suspicious_count += 2  # Multiple suspicious audio events
 
         behavior = "Suspicious" if suspicious_count >= 3 else "Normal"
         confidence = min(1.0, suspicious_count / 10.0)
