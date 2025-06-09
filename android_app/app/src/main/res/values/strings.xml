@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cheating Detection</string>
+    
+    <!-- Main Activity -->
+    <string name="server_configuration">Server Configuration</string>
+    <string name="enter_server_url">Enter the ngrok URL from your server:</string>
+    <string name="server_url_hint">https://your-ngrok-url.ngrok.io</string>
+    <string name="test_connection">Test Connection</string>
+    <string name="start_detection">Start Detection</string>
+    <string name="settings">Settings</string>
+    <string name="help">Help</string>
+    
+    <!-- Camera Activity -->
+    <string name="stop_detection">Stop Detection</string>
+    <string name="back">Back</string>
+    <string name="calibrating">Calibrating...</string>
+    <string name="calibration_instruction">Please keep your head straight\nand look at the screen</string>
+    <string name="suspicious_behavior_warning">⚠️ SUSPICIOUS BEHAVIOR DETECTED</string>
+    
+    <!-- Settings Activity -->
+    <string name="video_settings">Video Settings</string>
+    <string name="frame_quality">Frame Quality</string>
+    <string name="frame_interval">Frame Interval</string>
+    <string name="connection_settings">Connection Settings</string>
+    <string name="auto_reconnect">Auto Reconnect</string>
+    <string name="ui_settings">UI Settings</string>
+    <string name="show_detailed_results">Show Detailed Results</string>
+    <string name="vibrate_on_detection">Vibrate on Detection</string>
+    <string name="save">Save</string>
+    <string name="reset">Reset</string>
+    
+    <!-- Messages -->
+    <string name="no_server_url">Please enter server URL</string>
+    <string name="connection_successful">✅ Server connection successful!</string>
+    <string name="connection_failed">❌ Connection failed</string>
+    <string name="camera_permission_required">Camera permission is required for the app to work</string>
+    <string name="settings_saved">Settings saved successfully</string>
+    <string name="settings_reset">Settings reset to defaults</string>
+    
+    <!-- Help Text -->
+    <string name="help_title">Help &amp; Instructions</string>
+    <string name="help_content">📱 Cheating Detection App Help\n\n🔧 Setup Instructions:\n1. Start the Python server on your computer\n2. Copy the ngrok URL from the server console\n3. Paste the URL in the \"Server URL\" field\n4. Click \"Test Connection\" to verify\n5. Click \"Start Detection\" to begin monitoring\n\n🎥 During Detection:\n• Keep your face visible to the camera\n• The app will stream video to the server\n• Detection results will be shown in real-time\n• Red indicators show suspicious behavior\n• Green indicators show normal behavior\n\n⚙️ Settings:\n• Adjust streaming quality\n• Configure detection sensitivity\n• View connection logs\n\n❓ Troubleshooting:\n• Ensure stable internet connection\n• Check if server is running\n• Verify ngrok URL is correct\n• Grant all required permissions</string>
+    
+    <!-- Quick Instructions -->
+    <string name="quick_instructions">📋 Quick Instructions</string>
+    <string name="quick_instructions_content">1. Start the Python server on your computer\n2. Copy the ngrok URL from the console\n3. Paste it above and test connection\n4. Start detection to begin monitoring</string>
+</resources>

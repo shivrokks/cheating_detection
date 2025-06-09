@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    tools:context=".CameraActivity">
+
+    <!-- Camera Preview -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/viewFinder"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerInParent="true" />
+
+    <!-- Top Status Bar -->
+    <LinearLayout
+        android:id="@+id/topStatusBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:orientation="vertical"
+        android:background="#80000000"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/textViewServerUrl"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Server: Not connected"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/textViewConnectionStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Initializing..."
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+    <!-- Detection Status Overlay -->
+    <LinearLayout
+        android:id="@+id/detectionStatusOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/topStatusBar"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        android:background="#80000000"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/textViewDetectionStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Detection stopped"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/textViewDetailedResults"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:lineSpacingExtra="2dp" />
+
+    </LinearLayout>
+
+    <!-- Bottom Controls -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="vertical"
+        android:background="#80000000"
+        android:padding="16dp">
+
+        <!-- Detection Toggle Button -->
+        <Button
+            android:id="@+id/buttonToggleDetection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Start Detection"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp"
+            android:backgroundTint="@android:color/holo_green_dark" />
+
+        <!-- Control Buttons Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/buttonBack"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="← Back"
+                android:backgroundTint="@android:color/darker_gray" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Calibration Overlay (shown during calibration) -->
+    <LinearLayout
+        android:id="@+id/calibrationOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#CC000000"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔄 Calibrating..."
+            android:textColor="@android:color/white"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Please keep your head straight\nand look at the screen"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:indeterminate="true" />
+
+    </LinearLayout>
+
+    <!-- Warning Overlay (shown when suspicious behavior detected) -->
+    <LinearLayout
+        android:id="@+id/warningOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#CCFF0000"
+        android:padding="24dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚠️ SUSPICIOUS BEHAVIOR DETECTED"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+</RelativeLayout>

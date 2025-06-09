@@ -1,19 +1,37 @@
-# Enhanced Cheating Detection System
+# 🔍 Cheating Detection System with Android App
 
-This system uses computer vision and machine learning to detect potential cheating behaviors during exams or assessments.
+A comprehensive real-time cheating detection system that monitors various behavioral patterns during exams or assessments. The system includes both a Python server for detection processing and an Android app for mobile video streaming via ngrok tunneling.
 
-## Features
+## 🌟 Features
 
-- **Eye Movement Detection**: Tracks where the user is looking
-- **Head Pose Detection**: Monitors head position and detects rapid movements
-- **Lip Movement Detection**: Detects if the user is talking
-- **Facial Expression Analysis**: Identifies suspicious expressions
-- **Person Detection**: Counts people in the frame and detects if someone new enters
-- **Object Detection**: Identifies suspicious objects like phones, books, etc.
-- **Behavior Analysis**: Uses machine learning to identify suspicious behavior patterns
+### Core Detection Features
+- **👁️ Eye Movement Detection**: Tracks gaze direction and detects suspicious eye movements
+- **🗣️ Head Pose Estimation**: Monitors head position and detects rapid movements
+- **📱 Mobile Device Detection**: Identifies mobile phones in the camera view
+- **💬 Lip Movement Analysis**: Detects talking or whispering
+- **😊 Facial Expression Recognition**: Analyzes facial expressions for signs of stress or confusion
+- **👥 Person Detection**: Counts people in frame and detects new entries
+- **📚 Object Detection**: Identifies suspicious objects like books, papers, or electronic devices
+- **🎤 Audio Analysis**: Detects suspicious speech patterns and keywords
+- **🧠 Behavior Analysis**: Machine learning model that combines all features for overall behavior assessment
 
-## Requirements
+### New Mobile Features
+- **📱 Android App**: Native Android application for video streaming
+- **🌐 Ngrok Tunneling**: Secure tunneling for remote server access
+- **🔄 Real-time Streaming**: Live video streaming from mobile camera to server
+- **📊 Live Results**: Real-time detection results displayed on mobile device
+- **⚙️ Configurable Settings**: Adjustable video quality, frame rate, and detection sensitivity
 
+## 🏗️ System Architecture
+
+```
+[Android App] ---> [Ngrok Tunnel] ---> [Python Server] ---> [Detection Modules]
+     📱                  🌐                  🖥️                    🔍
+```
+
+## 📋 Requirements
+
+### Server Requirements
 - Python 3.7+
 - OpenCV
 - dlib
@@ -21,24 +39,63 @@ This system uses computer vision and machine learning to detect potential cheati
 - scikit-learn
 - PyTorch
 - Ultralytics (YOLOv8)
-- keyboard
+- Flask
+- Flask-SocketIO
+- pyngrok
 
-## Installation
+### Android App Requirements
+- Android 7.0 (API level 24) or higher
+- Camera permission
+- Internet connection
+- Minimum 2GB RAM recommended
 
-1. Clone this repository:
-   ```
-   git clone https://github.com/yourusername/Cheating-Surveillance-System.git
-   cd Cheating-Surveillance-System
+## 🚀 Installation & Setup
+
+### 1. Server Setup
+
+1. **Clone this repository:**
+   ```bash
+   git clone https://github.com/yourusername/cheating-detection-system.git
+   cd cheating-detection-system
    ```
 
-2. Install the required dependencies:
-   ```
-   pip install opencv-python dlib numpy scikit-learn torch ultralytics keyboard
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
    ```
 
-3. Download the required models:
-   - Download the shape_predictor_68_face_landmarks.dat file from the dlib website and place it in the `model` directory
-   - The YOLOv8 model will be downloaded automatically on first run
+3. **Download required models:**
+   - Download `shape_predictor_68_face_landmarks.dat` from dlib website and place in `model/` directory
+   - YOLOv8 models will be downloaded automatically on first run
+
+4. **Start the server:**
+   ```bash
+   python start_server.py
+   ```
+
+   Or directly:
+   ```bash
+   python server.py
+   ```
+
+### 2. Android App Setup
+
+#### Option A: Build from Source
+1. **Open Android Studio**
+2. **Import the project** from `android_app/` directory
+3. **Build and install** the APK on your device
+
+#### Option B: Install Pre-built APK
+1. Download the APK from releases
+2. Enable "Unknown Sources" in Android settings
+3. Install the APK
+
+### 3. Ngrok Setup (Required for Remote Access)
+
+1. **Download ngrok** from https://ngrok.com/download
+2. **Sign up** for a free ngrok account
+3. **Install ngrok** and add to your PATH
+4. The server will automatically start ngrok tunnel
 
 ## Usage
 

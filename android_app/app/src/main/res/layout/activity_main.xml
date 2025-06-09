@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    tools:context=".MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- App Title -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔍 Cheating Detection"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="24dp"
+            android:textColor="@android:color/black" />
+
+        <!-- Server Configuration Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@android:color/white"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🌐 Server Configuration"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Enter the ngrok URL from your server:"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <EditText
+                    android:id="@+id/editTextServerUrl"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="https://your-ngrok-url.ngrok.io"
+                    android:inputType="textUri"
+                    android:layout_marginBottom="12dp"
+                    android:padding="12dp"
+                    android:background="@drawable/edittext_background" />
+
+                <Button
+                    android:id="@+id/buttonTestConnection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🔗 Test Connection"
+                    android:layout_marginBottom="8dp"
+                    android:backgroundTint="@android:color/holo_blue_dark" />
+
+                <!-- Connection Status -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Status:"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/textViewConnectionStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="2"
+                        android:text="Not tested"
+                        android:textColor="@android:color/darker_gray" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/textViewServerInfo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textSize="12sp"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@android:color/darker_gray" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Detection Controls Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@android:color/white"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🎥 Detection Controls"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <Button
+                    android:id="@+id/buttonStartDetection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📹 Start Detection"
+                    android:textSize="16sp"
+                    android:padding="16dp"
+                    android:backgroundTint="@android:color/holo_green_dark"
+                    android:enabled="false" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Additional Options Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:background="@android:color/white"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="⚙️ Additional Options"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/buttonSettings"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="⚙️ Settings"
+                        android:layout_marginEnd="8dp"
+                        android:backgroundTint="@android:color/holo_orange_dark" />
+
+                    <Button
+                        android:id="@+id/buttonHelp"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="❓ Help"
+                        android:layout_marginStart="8dp"
+                        android:backgroundTint="@android:color/holo_purple" />
+
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Instructions Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/white"
+            android:orientation="vertical"
+            android:padding="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📋 Quick Instructions"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="1. Start the Python server on your computer\n2. Copy the ngrok URL from the console\n3. Paste it above and test connection\n4. Start detection to begin monitoring"
+                    android:textSize="14sp"
+                    android:lineSpacingExtra="4dp" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
