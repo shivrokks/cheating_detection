@@ -128,17 +128,27 @@ def process_frame_detection(frame, client_talking_status=False, client_audio_lev
 
         if detection_state['is_calibrating']:
             if current_time - detection_state['calibration_start_time'] <= 5:
-                # Still calibrating
-                if detection_state['calibrated_angles'] is None:
-                    _, detection_state['calibrated_angles'] = process_head_pose(frame, None)
+                # Still calibrating - collect calibration data
+                _, calibration_result = process_head_pose(frame, None)
+                if calibration_result is not None and isinstance(calibration_result, tuple) and len(calibration_result) == 3:
+                    detection_state['calibrated_angles'] = calibration_result
+                    logger.info(f"Calibration angles collected: {calibration_result}")
+                head_direction = "Calibrating..."
             else:
                 # Calibration complete
                 detection_state['is_calibrating'] = False
-                logger.info("Head pose calibration completed")
-        
+                if detection_state['calibrated_angles'] is not None:
+                    logger.info(f"Head pose calibration completed with angles: {detection_state['calibrated_angles']}")
+                else:
+                    logger.warning("Head pose calibration completed but no angles were collected")
+                    # Set default angles if calibration failed
+                    detection_state['calibrated_angles'] = (0.0, 0.0, 0.0)
+
         if not detection_state['is_calibrating'] and detection_state['calibrated_angles'] is not None:
             frame, head_direction = process_head_pose(frame, detection_state['calibrated_angles'])
             logger.info(f"Head pose result: {head_direction}")
+        else:
+            head_direction = "Calibrating..." if detection_state['is_calibrating'] else "Not Calibrated"
         
         # Process mobile detection
         frame, mobile_detected = process_mobile_detection(frame)

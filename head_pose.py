@@ -9,8 +9,15 @@ import time
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("model/shape_predictor_68_face_landmarks.dat")
 
-# Load OpenCV face detector as fallback
-opencv_face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+# Load OpenCV face detector as fallback with error handling
+try:
+    opencv_face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    if opencv_face_cascade.empty():
+        print("Warning: OpenCV face cascade failed to load, using dlib only")
+        opencv_face_cascade = None
+except Exception as e:
+    print(f"Error loading OpenCV cascade: {e}")
+    opencv_face_cascade = None
 
 def detect_faces_improved(gray_frame):
     """Improved face detection using multiple methods"""
@@ -40,25 +47,32 @@ def detect_faces_improved(gray_frame):
     if len(dlib_faces) > 0:
         return dlib_faces
 
-    # Method 5: OpenCV detector with multiple parameter sets
-    # Try with relaxed parameters first
-    opencv_faces = opencv_face_cascade.detectMultiScale(
-        gray_frame,
-        scaleFactor=1.05,
-        minNeighbors=3,
-        minSize=(20, 20),
-        flags=cv2.CASCADE_SCALE_IMAGE
-    )
+    # Method 5: OpenCV detector with multiple parameter sets (only if available)
+    if opencv_face_cascade is not None:
+        try:
+            # Try with relaxed parameters first
+            opencv_faces = opencv_face_cascade.detectMultiScale(
+                gray_frame,
+                scaleFactor=1.05,
+                minNeighbors=3,
+                minSize=(20, 20),
+                flags=cv2.CASCADE_SCALE_IMAGE
+            )
 
-    if len(opencv_faces) == 0:
-        # Try with even more relaxed parameters
-        opencv_faces = opencv_face_cascade.detectMultiScale(
-            gray_frame,
-            scaleFactor=1.1,
-            minNeighbors=2,
-            minSize=(15, 15),
-            flags=cv2.CASCADE_SCALE_IMAGE
-        )
+            if len(opencv_faces) == 0:
+                # Try with even more relaxed parameters
+                opencv_faces = opencv_face_cascade.detectMultiScale(
+                    gray_frame,
+                    scaleFactor=1.1,
+                    minNeighbors=2,
+                    minSize=(15, 15),
+                    flags=cv2.CASCADE_SCALE_IMAGE
+                )
+        except Exception as e:
+            print(f"OpenCV cascade detection error: {e}")
+            opencv_faces = []
+    else:
+        opencv_faces = []
 
     # Convert OpenCV rectangles to dlib rectangles
     for (x, y, w, h) in opencv_faces:
