@@ -199,6 +199,11 @@ def process_behavior_analysis(head_data, eye_data, lip_data, expression_data, pe
 
     # Only make predictions at certain intervals to avoid flickering
     current_time = time.time()
+
+    # Debug: Check if last_prediction_time is None
+    if last_prediction_time is None:
+        last_prediction_time = 0
+
     if current_time - last_prediction_time < prediction_cooldown:
         # Return last prediction if we're in cooldown
         if hasattr(process_behavior_analysis, 'last_result'):

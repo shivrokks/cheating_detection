@@ -7,7 +7,64 @@ import time
 
 # Load face detector & landmarks predictor
 detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor("./model/shape_predictor_68_face_landmarks.dat")
+predictor = dlib.shape_predictor("model/shape_predictor_68_face_landmarks.dat")
+
+# Load OpenCV face detector as fallback
+opencv_face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+def detect_faces_improved(gray_frame):
+    """Improved face detection using multiple methods"""
+    faces = []
+
+    # Try dlib detector first with multiple scales and preprocessing
+    # Method 1: Standard dlib detection
+    dlib_faces = detector(gray_frame, 1)
+    if len(dlib_faces) > 0:
+        return dlib_faces
+
+    # Method 2: More sensitive dlib detection
+    dlib_faces = detector(gray_frame, 0)
+    if len(dlib_faces) > 0:
+        return dlib_faces
+
+    # Method 3: Try with different image preprocessing
+    # Gaussian blur to reduce noise
+    blurred = cv2.GaussianBlur(gray_frame, (3, 3), 0)
+    dlib_faces = detector(blurred, 0)
+    if len(dlib_faces) > 0:
+        return dlib_faces
+
+    # Method 4: Try with contrast enhancement
+    enhanced = cv2.convertScaleAbs(gray_frame, alpha=1.2, beta=10)
+    dlib_faces = detector(enhanced, 0)
+    if len(dlib_faces) > 0:
+        return dlib_faces
+
+    # Method 5: OpenCV detector with multiple parameter sets
+    # Try with relaxed parameters first
+    opencv_faces = opencv_face_cascade.detectMultiScale(
+        gray_frame,
+        scaleFactor=1.05,
+        minNeighbors=3,
+        minSize=(20, 20),
+        flags=cv2.CASCADE_SCALE_IMAGE
+    )
+
+    if len(opencv_faces) == 0:
+        # Try with even more relaxed parameters
+        opencv_faces = opencv_face_cascade.detectMultiScale(
+            gray_frame,
+            scaleFactor=1.1,
+            minNeighbors=2,
+            minSize=(15, 15),
+            flags=cv2.CASCADE_SCALE_IMAGE
+        )
+
+    # Convert OpenCV rectangles to dlib rectangles
+    for (x, y, w, h) in opencv_faces:
+        faces.append(dlib.rectangle(x, y, x + w, y + h))
+
+    return faces
 
 # 3D Model Points (Mapped to Facial Landmarks)
 model_points = np.array([
@@ -102,15 +159,22 @@ def process_head_pose(frame, calibrated_angles=None):
     global previous_state, last_angles, rapid_movement_detected, last_rapid_movement_time
 
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = detector(gray)
+
+    # Enhance image for better face detection
+    enhanced_gray = cv2.equalizeHist(gray)
+
+    # Use improved face detection
+    faces = detect_faces_improved(enhanced_gray)
     head_direction = "Looking at Screen"
+
+    # print(f"DEBUG: Head pose - detected {len(faces)} faces")  # Commented out for production
 
     # Reset rapid movement flag if it's been a while
     if rapid_movement_detected and time.time() - last_rapid_movement_time > 1.0:
         rapid_movement_detected = False
 
     for face in faces:
-        landmarks = predictor(gray, face)
+        landmarks = predictor(enhanced_gray, face)
         image_points = np.array([
             (landmarks.part(30).x, landmarks.part(30).y),  # Nose tip
             (landmarks.part(8).x, landmarks.part(8).y),    # Chin
@@ -169,8 +233,6 @@ def process_head_pose(frame, calibrated_angles=None):
         if calibrated_angles is None:
             return frame, (pitch, yaw, roll)
 
-        calibrated_angles = (0, 0, 0)
-
         # Use calibrated angles for head pose detection
         if len(calibrated_angles) == 3:
             pitch_offset, yaw_offset, roll_offset = calibrated_angles
@@ -208,5 +270,9 @@ def process_head_pose(frame, calibrated_angles=None):
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
         cv2.putText(frame, f"Roll: {roll:.2f}", (face.left(), face.top() - 0),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+
+        # Debug print for testing
+        if calibrated_angles is not None:
+            pass  # print(f"DEBUG: Head pose - pitch: {pitch:.2f}, yaw: {yaw:.2f}, roll: {roll:.2f}, direction: {head_direction}")  # Commented out for production
 
     return frame, head_direction

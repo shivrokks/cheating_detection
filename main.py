@@ -58,6 +58,7 @@ person_count = 1
 multiple_people = False
 new_person_entered = False
 suspicious_objects = False
+frame_count = 0
 
 # Initialize behavior analysis
 behavior_analysis_start_time = None
@@ -269,6 +270,12 @@ while True:
             behavior_analysis_start_time = None  # Reset timer
     else:
         behavior_analysis_start_time = None  # Reset timer
+
+    # Add debug information to console (every 30 frames to avoid spam)
+    if frame_count % 30 == 0:
+        print(f"Debug - Gaze: {gaze_direction}, Head: {head_direction}, Mobile: {mobile_detected}, Talking: {is_talking}, Expression: {facial_expression}")
+
+    frame_count += 1
 
     # Display the combined output
     cv2.imshow("Combined Detection", frame)

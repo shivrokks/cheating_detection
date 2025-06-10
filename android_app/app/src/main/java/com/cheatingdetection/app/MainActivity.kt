@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val PREFS_NAME = "CheatingDetectionPrefs"
         const val KEY_SERVER_URL = "server_url"
-        const val DEFAULT_SERVER_URL = "https://your-ngrok-url.ngrok.io"
+        const val DEFAULT_SERVER_URL = "https://7fad-103-180-45-255.ngrok-free.app"
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,20 +95,60 @@ class MainActivity : AppCompatActivity() {
             )
             .withListener(object : MultiplePermissionsListener {
                 override fun onPermissionsChecked(report: MultiplePermissionsReport) {
-                    if (report.areAllPermissionsGranted()) {
-                        // All permissions granted
+                    // Debug: Log permission status
+                    android.util.Log.d("MainActivity", "Permission check results:")
+                    report.grantedPermissionResponses.forEach {
+                        android.util.Log.d("MainActivity", "Granted: ${it.permissionName}")
+                    }
+                    report.deniedPermissionResponses.forEach {
+                        android.util.Log.d("MainActivity", "Denied: ${it.permissionName}")
+                    }
+
+                    // Check if essential permissions (camera and audio) are granted
+                    val cameraGranted = report.grantedPermissionResponses.any {
+                        it.permissionName == Manifest.permission.CAMERA
+                    }
+                    val audioGranted = report.grantedPermissionResponses.any {
+                        it.permissionName == Manifest.permission.RECORD_AUDIO
+                    }
+
+                    if (cameraGranted && audioGranted) {
+                        // Essential permissions granted - enable start detection
                         binding.buttonStartDetection.isEnabled = true
+
+                        // Check storage permissions for optional features
+                        val storageGranted = report.grantedPermissionResponses.any {
+                            it.permissionName == Manifest.permission.WRITE_EXTERNAL_STORAGE
+                        }
+
+                        if (!storageGranted) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "✅ Camera and audio permissions granted. Storage permission optional for logs.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "✅ All permissions granted!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
                     } else {
-                        // Some permissions denied
+                        // Essential permissions denied
+                        val missingPermissions = mutableListOf<String>()
+                        if (!cameraGranted) missingPermissions.add("Camera")
+                        if (!audioGranted) missingPermissions.add("Microphone")
+
                         Toast.makeText(
                             this@MainActivity,
-                            "Camera and storage permissions are required for the app to work",
+                            "❌ Required permissions missing: ${missingPermissions.joinToString(", ")}",
                             Toast.LENGTH_LONG
                         ).show()
                         binding.buttonStartDetection.isEnabled = false
                     }
                 }
-                
+
                 override fun onPermissionRationaleShouldBeShown(
                     permissions: List<PermissionRequest>,
                     token: PermissionToken

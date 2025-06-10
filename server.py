@@ -4,11 +4,6 @@ Flask Server for Cheating Detection System
 Provides REST API endpoints for Android app to stream video and receive detection results
 """
 
-# Suppress ALSA warnings before importing audio libraries
-import os
-os.environ['ALSA_PCM_CARD'] = 'default'
-os.environ['ALSA_PCM_DEVICE'] = '0'
-
 import cv2
 import numpy as np
 import base64
@@ -31,7 +26,7 @@ from facial_expression import process_facial_expression
 from person_detection import process_person_detection
 from object_detection import process_object_detection
 from behavior_analysis import process_behavior_analysis, load_training_data
-from audio_detection import initialize_audio_detection, process_audio_detection
+# Removed audio_detection import - now handled client-side
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -63,17 +58,9 @@ def initialize_detection_systems():
     # Load behavior training data
     load_training_data()
     
-    # Initialize audio detection (optional)
-    try:
-        audio_initialized = initialize_audio_detection()
-        detection_state['audio_initialized'] = audio_initialized
-        if audio_initialized:
-            logger.info("Audio detection initialized successfully")
-        else:
-            logger.warning("Audio detection failed to initialize")
-    except Exception as e:
-        logger.error(f"Audio detection initialization error: {e}")
-        detection_state['audio_initialized'] = False
+    # Audio detection is now handled client-side (Android app)
+    detection_state['audio_initialized'] = True  # Always true since it's handled by client
+    logger.info("Audio detection will be handled client-side")
     
     # Set calibration start time
     detection_state['calibration_start_time'] = time.time()
@@ -111,7 +98,7 @@ def encode_image_to_base64(frame):
         logger.error(f"Error encoding image to base64: {e}")
         return None
 
-def process_frame_detection(frame):
+def process_frame_detection(frame, client_talking_status=False, client_audio_level=0.0):
     """Process a single frame through all detection systems"""
     global detection_state
     
@@ -130,9 +117,15 @@ def process_frame_detection(frame):
         
         # Process eye movement
         frame, gaze_direction = process_eye_movement(frame)
+        logger.info(f"Eye movement result: {gaze_direction}")
         
         # Process head pose with calibration
         current_time = time.time()
+
+        # Initialize calibration_start_time if not set
+        if detection_state['calibration_start_time'] is None:
+            detection_state['calibration_start_time'] = current_time
+
         if detection_state['is_calibrating']:
             if current_time - detection_state['calibration_start_time'] <= 5:
                 # Still calibrating
@@ -145,15 +138,19 @@ def process_frame_detection(frame):
         
         if not detection_state['is_calibrating'] and detection_state['calibrated_angles'] is not None:
             frame, head_direction = process_head_pose(frame, detection_state['calibrated_angles'])
+            logger.info(f"Head pose result: {head_direction}")
         
         # Process mobile detection
         frame, mobile_detected = process_mobile_detection(frame)
-        
+        logger.info(f"Mobile detection result: {mobile_detected}")
+
         # Process lip movement detection
         frame, is_talking = process_lip_movement(frame)
-        
+        logger.info(f"Lip movement result: {is_talking}")
+
         # Process facial expression detection
         frame, facial_expression = process_facial_expression(frame)
+        logger.info(f"Facial expression result: {facial_expression}")
         
         # Process person detection
         frame, person_count, multiple_people, new_person_entered = process_person_detection(frame)
@@ -161,28 +158,19 @@ def process_frame_detection(frame):
         # Process object detection
         frame, suspicious_objects, detected_objects = process_object_detection(frame)
         
-        # Process audio detection (if available)
-        audio_result = {}
-        if detection_state['audio_initialized']:
-            try:
-                audio_result = process_audio_detection()
-            except Exception as e:
-                logger.error(f"Audio detection error: {e}")
-                audio_result = {
-                    'is_suspicious': False,
-                    'suspicion_score': 0,
-                    'detected_text': '',
-                    'suspicious_words': [],
-                    'recent_detections': 0
-                }
-        else:
-            audio_result = {
-                'is_suspicious': False,
-                'suspicion_score': 0,
-                'detected_text': '',
-                'suspicious_words': [],
-                'recent_detections': 0
-            }
+        # Use client-side audio detection results
+        audio_result = {
+            'is_suspicious': client_talking_status,  # Consider talking as potentially suspicious
+            'suspicion_score': 1 if client_talking_status else 0,
+            'detected_text': 'Talking detected by client' if client_talking_status else '',
+            'suspicious_words': [],
+            'recent_detections': 1 if client_talking_status else 0,
+            'audio_level': client_audio_level
+        }
+
+        # Override is_talking with client-provided status
+        is_talking = client_talking_status
+        logger.info(f"Client audio status - Talking: {client_talking_status}, Level: {client_audio_level}")
         
         # Prepare data for behavior analysis
         head_data = {
@@ -244,7 +232,9 @@ def process_frame_detection(frame):
         return frame, detection_results
         
     except Exception as e:
+        import traceback
         logger.error(f"Error processing frame: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return frame, {'error': str(e), 'timestamp': time.time()}
 
 @app.route('/health', methods=['GET'])
@@ -271,8 +261,12 @@ def process_frame():
         if frame is None:
             return jsonify({'error': 'Invalid image data'}), 400
         
+        # Extract client audio data (if provided)
+        client_talking = data.get('is_talking', False)
+        client_audio_level = data.get('audio_level', 0.0)
+
         # Process the frame
-        processed_frame, results = process_frame_detection(frame)
+        processed_frame, results = process_frame_detection(frame, client_talking, client_audio_level)
         
         # Encode processed frame back to base64 (optional)
         processed_image_b64 = None
@@ -323,22 +317,26 @@ def handle_frame_processing(data):
         if 'image' not in data:
             emit('error', {'message': 'No image data provided'})
             return
-        
+
+        # Extract client audio data
+        client_talking = data.get('is_talking', False)
+        client_audio_level = data.get('audio_level', 0.0)
+
         # Decode and process frame
         frame = decode_base64_image(data['image'])
         if frame is None:
             emit('error', {'message': 'Invalid image data'})
             return
-        
-        processed_frame, results = process_frame_detection(frame)
-        
+
+        processed_frame, results = process_frame_detection(frame, client_talking, client_audio_level)
+
         # Send results back
         emit('detection_results', {
             'success': True,
             'results': results,
             'timestamp': time.time()
         })
-        
+
     except Exception as e:
         logger.error(f"WebSocket frame processing error: {e}")
         emit('error', {'message': str(e)})

@@ -12,19 +12,23 @@ def process_mobile_detection(frame):
     mobile_detected = False
 
     for result in results:
-        for box in result.boxes:
-            conf = box.conf[0].item()
-            cls = int(box.cls[0].item())
+        if result.boxes is not None and len(result.boxes) > 0:
+            for box in result.boxes:
+                conf = box.conf[0].item()
+                cls = int(box.cls[0].item())
 
-            if conf < 0.8 or cls != 0:  # Mobile class index is 0
-                continue
+                # Debug: print all detections
+                # print(f"Mobile detection: class={cls}, conf={conf:.3f}")
 
-            x1, y1, x2, y2 = map(int, box.xyxy[0])  
-            label = f"Mobile ({conf:.2f})"
+                if conf < 0.8 or cls != 0:  # Mobile class index is 0, high threshold to reduce false positives
+                    continue
 
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
-            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                label = f"Mobile ({conf:.2f})"
 
-            mobile_detected = True
-    
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
+                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+                mobile_detected = True
+
     return frame, mobile_detected

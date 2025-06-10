@@ -128,6 +128,7 @@ class AudioDetection:
                 print("Microphone initialized successfully")
         except Exception as e:
             print(f"Error initializing microphone: {e}")
+            raise e  # Re-raise the exception to be caught by the caller
     
     def start_listening(self):
         """Start audio detection in a separate thread"""
@@ -331,13 +332,33 @@ def initialize_audio_detection(device_index=None):  # Added device_index paramet
     """Initialize global audio detection"""
     global audio_detector
     try:
-        list_microphones()  # Print available microphones
+        # Suppress ALSA error messages during initialization
+        import sys
+        from contextlib import redirect_stderr
+
+        print("Initializing audio detection...")
+
+        # Try to list microphones with error suppression
+        try:
+            with open(os.devnull, 'w') as devnull:
+                with redirect_stderr(devnull):
+                    list_microphones()  # Print available microphones
+        except:
+            print("Could not list microphones, but continuing...")
+
         print(f"Attempting to use microphone with index: {device_index if device_index is not None else 'Default'}")
-        audio_detector = AudioDetection(device_index=device_index)
-        audio_detector.start_listening()
+
+        # Try to initialize audio detector with error suppression
+        with open(os.devnull, 'w') as devnull:
+            with redirect_stderr(devnull):
+                audio_detector = AudioDetection(device_index=device_index)
+                audio_detector.start_listening()
+
+        print("Audio detection initialized successfully")
         return True
     except Exception as e:
         print(f"Failed to initialize audio detection: {e}")
+        print("Audio detection will be disabled - system will continue without audio monitoring")
         return False
 
 def process_audio_detection():
