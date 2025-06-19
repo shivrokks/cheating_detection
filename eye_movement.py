@@ -1,6 +1,7 @@
 import cv2
 import dlib
 import numpy as np
+from collections import deque
 
 # Load dlib’s face detector and 68 landmarks model
 detector = dlib.get_frontal_face_detector()
@@ -15,6 +16,11 @@ try:
 except Exception as e:
     print(f"Error loading OpenCV cascade: {e}")
     opencv_face_cascade = None
+
+# Smoothing for gaze detection
+gaze_history = deque(maxlen=5)  # Keep last 5 gaze directions
+frame_count = 0
+DEBUG_MODE = False  # Set to True for debugging
 
 def detect_faces_improved(gray_frame):
     """Improved face detection using multiple methods"""
@@ -47,22 +53,22 @@ def detect_faces_improved(gray_frame):
     # Method 5: OpenCV detector with multiple parameter sets (only if available)
     if opencv_face_cascade is not None:
         try:
-            # Try with relaxed parameters first
+            # Try with very relaxed parameters first
             opencv_faces = opencv_face_cascade.detectMultiScale(
                 gray_frame,
-                scaleFactor=1.05,
-                minNeighbors=3,
-                minSize=(20, 20),
+                scaleFactor=1.03,
+                minNeighbors=2,
+                minSize=(15, 15),
                 flags=cv2.CASCADE_SCALE_IMAGE
             )
 
             if len(opencv_faces) == 0:
-                # Try with even more relaxed parameters
+                # Try with extremely relaxed parameters
                 opencv_faces = opencv_face_cascade.detectMultiScale(
                     gray_frame,
-                    scaleFactor=1.1,
-                    minNeighbors=2,
-                    minSize=(15, 15),
+                    scaleFactor=1.05,
+                    minNeighbors=1,
+                    minSize=(10, 10),
                     flags=cv2.CASCADE_SCALE_IMAGE
                 )
         except Exception as e:
@@ -99,6 +105,9 @@ def detect_pupil(eye_region):
     return None, None
 
 def process_eye_movement(frame):
+    global gaze_history, frame_count
+
+    frame_count += 1
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     # Enhance image for better face detection
@@ -108,7 +117,8 @@ def process_eye_movement(frame):
     faces = detect_faces_improved(enhanced_gray)
     gaze_direction = "Looking Center"
 
-    # print(f"DEBUG: Eye movement - detected {len(faces)} faces")  # Commented out for production
+    if DEBUG_MODE:
+        print(f"DEBUG: Eye movement - detected {len(faces)} faces")
 
     for face in faces:
         landmarks = predictor(enhanced_gray, face)
@@ -151,7 +161,49 @@ def process_eye_movement(frame):
         if right_pupil and right_bbox:
             cv2.circle(frame, (right_eye_rect[0] + right_pupil[0], right_eye_rect[1] + right_pupil[1]), 5, (0, 0, 255), -1)
         
-        # Gaze Detection with improved thresholds
+        # Alternative gaze detection using eye landmarks directly (more reliable)
+        # Calculate eye aspect ratios and positions
+        left_eye_center = np.mean(left_eye_points, axis=0)
+        right_eye_center = np.mean(right_eye_points, axis=0)
+
+        # Get face center for reference
+        face_center_x = (face.left() + face.right()) / 2
+        face_center_y = (face.top() + face.bottom()) / 2
+
+        # Calculate relative eye positions
+        eyes_center_x = (left_eye_center[0] + right_eye_center[0]) / 2
+        eyes_center_y = (left_eye_center[1] + right_eye_center[1]) / 2
+
+        # Calculate offset from face center
+        face_width = face.right() - face.left()
+        face_height = face.bottom() - face.top()
+
+        # Normalize offsets
+        x_offset = (eyes_center_x - face_center_x) / face_width
+        y_offset = (eyes_center_y - face_center_y) / face_height
+
+        # More balanced and stable thresholds for gaze detection
+        # Use different thresholds for different directions to account for natural eye position
+        horizontal_threshold = 0.12
+        vertical_threshold = 0.08
+
+        # Prioritize horizontal movement over vertical (more reliable)
+        if abs(x_offset) > abs(y_offset):
+            if x_offset < -horizontal_threshold:
+                gaze_direction = "Looking Left"
+            elif x_offset > horizontal_threshold:
+                gaze_direction = "Looking Right"
+            else:
+                gaze_direction = "Looking Center"
+        else:
+            if y_offset < -vertical_threshold:
+                gaze_direction = "Looking Up"
+            elif y_offset > vertical_threshold:
+                gaze_direction = "Looking Down"
+            else:
+                gaze_direction = "Looking Center"
+
+        # Fallback: Try pupil detection if available
         if left_pupil and right_pupil:
             lx, ly = left_pupil
             rx, ry = right_pupil
@@ -169,23 +221,43 @@ def process_eye_movement(frame):
             avg_x = (norm_lx + norm_rx) / 2
             avg_y = (norm_ly + norm_ry) / 2
 
-            # Improved gaze direction detection with better thresholds
-            if avg_x < 0.35:
+            # Use pupil detection with very sensitive thresholds
+            if avg_x < 0.35:  # Very sensitive for left
                 gaze_direction = "Looking Left"
-            elif avg_x > 0.65:
+            elif avg_x > 0.65:  # Very sensitive for right
                 gaze_direction = "Looking Right"
-            elif avg_y < 0.35:
+            elif avg_y < 0.35:  # Very sensitive for up
                 gaze_direction = "Looking Up"
-            elif avg_y > 0.65:
+            elif avg_y > 0.65:  # Very sensitive for down
                 gaze_direction = "Looking Down"
-            else:
-                gaze_direction = "Looking Center"
 
             # Add debug information
-            cv2.putText(frame, f"Gaze: ({avg_x:.2f}, {avg_y:.2f})",
-                       (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+            cv2.putText(frame, f"Pupil: ({avg_x:.2f}, {avg_y:.2f})",
+                       (10, frame.shape[0] - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
 
-            # Debug print for testing
-            # print(f"DEBUG: Eye movement - avg_x: {avg_x:.3f}, avg_y: {avg_y:.3f}, direction: {gaze_direction}")  # Commented out for production
-    
+        # Add debug information for landmark-based detection
+        cv2.putText(frame, f"Eyes: ({x_offset:.2f}, {y_offset:.2f})",
+                   (10, frame.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+
+        # Debug print for testing (enabled for troubleshooting)
+        if DEBUG_MODE:
+            print(f"DEBUG: Eye movement - x_offset: {x_offset:.3f}, y_offset: {y_offset:.3f}, direction: {gaze_direction}")
+
+    # Add smoothing to reduce jitter
+    gaze_history.append(gaze_direction)
+
+    # Use majority vote from recent history for more stable detection
+    if len(gaze_history) >= 3:
+        # Count occurrences of each direction
+        direction_counts = {}
+        for direction in gaze_history:
+            direction_counts[direction] = direction_counts.get(direction, 0) + 1
+
+        # Use the most common direction
+        smoothed_direction = max(direction_counts, key=direction_counts.get)
+
+        # Only change if the new direction appears at least twice in recent history
+        if direction_counts.get(smoothed_direction, 0) >= 2:
+            gaze_direction = smoothed_direction
+
     return frame, gaze_direction

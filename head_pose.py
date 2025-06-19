@@ -116,13 +116,15 @@ yaw_movement_history = deque(maxlen=MOVEMENT_HISTORY_SIZE)
 pitch_movement_history = deque(maxlen=MOVEMENT_HISTORY_SIZE)
 roll_movement_history = deque(maxlen=MOVEMENT_HISTORY_SIZE)
 last_angles = None
-rapid_movement_threshold = 8.0  # Degrees per frame threshold for rapid movement
+rapid_movement_threshold = 20.0  # Degrees per frame threshold for rapid movement (much higher to reduce false positives)
 
 # Global variables for state management
 previous_state = "Looking at Screen"
 calibrated_angles = None
 rapid_movement_detected = False
 last_rapid_movement_time = 0
+frame_count = 0  # Track frames to avoid early rapid movement detection
+DEBUG_MODE = False  # Set to True for debugging
 
 def get_head_pose_angles(image_points):
     success, rotation_vector, _ = cv2.solvePnP(
@@ -170,8 +172,9 @@ def detect_rapid_movement(current_angles, last_angles):
             roll_diff > rapid_movement_threshold)
 
 def process_head_pose(frame, calibrated_angles=None):
-    global previous_state, last_angles, rapid_movement_detected, last_rapid_movement_time
+    global previous_state, last_angles, rapid_movement_detected, last_rapid_movement_time, frame_count
 
+    frame_count += 1
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     # Enhance image for better face detection
@@ -213,8 +216,8 @@ def process_head_pose(frame, calibrated_angles=None):
         process_head_pose.last_yaw = yaw
         process_head_pose.last_roll = roll
 
-        # Detect rapid head movement
-        if last_angles is not None:
+        # Detect rapid head movement (only after enough frames to avoid false positives)
+        if last_angles is not None and frame_count > 10:  # Wait for 10 frames before detecting rapid movement
             if detect_rapid_movement(current_angles, last_angles):
                 rapid_movement_detected = True
                 last_rapid_movement_time = time.time()
@@ -252,25 +255,26 @@ def process_head_pose(frame, calibrated_angles=None):
             pitch_offset, yaw_offset, roll_offset = calibrated_angles
         else:
             raise ValueError("calibrated_angles must contain exactly three elements.")
-        PITCH_THRESHOLD = 8  # Reduced sensitivity
-        YAW_THRESHOLD = 12
-        ROLL_THRESHOLD = 5
+        # Much more sensitive thresholds
+        PITCH_THRESHOLD = 5  # More sensitive
+        YAW_THRESHOLD = 8   # More sensitive
+        ROLL_THRESHOLD = 4  # More sensitive
 
-        # Determine head direction
+        # Determine head direction with more sensitive detection
         if rapid_movement_detected:
             current_state = "Rapid Movement"
+        elif yaw < yaw_offset - 8:  # More sensitive left detection
+            current_state = "Looking Left"
+        elif yaw > yaw_offset + 8:  # More sensitive right detection
+            current_state = "Looking Right"
+        elif pitch > pitch_offset + 6:  # More sensitive up detection
+            current_state = "Looking Up"
+        elif pitch < pitch_offset - 6:  # More sensitive down detection
+            current_state = "Looking Down"
+        elif abs(roll - roll_offset) > 5:  # More sensitive tilt detection
+            current_state = "Tilted"
         elif abs(yaw - yaw_offset) <= YAW_THRESHOLD and abs(pitch - pitch_offset) <= PITCH_THRESHOLD and abs(roll - roll_offset) <= ROLL_THRESHOLD:
             current_state = "Looking at Screen"
-        elif yaw < yaw_offset - 15:
-            current_state = "Looking Left"
-        elif yaw > yaw_offset + 15:
-            current_state = "Looking Right"
-        elif pitch > pitch_offset + 10:
-            current_state = "Looking Up"
-        elif pitch < pitch_offset - 10:
-            current_state = "Looking Down"
-        elif abs(roll - roll_offset) > 7:
-            current_state = "Tilted"
         else:
             current_state = previous_state
 
@@ -285,8 +289,8 @@ def process_head_pose(frame, calibrated_angles=None):
         cv2.putText(frame, f"Roll: {roll:.2f}", (face.left(), face.top() - 0),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
 
-        # Debug print for testing
-        if calibrated_angles is not None:
-            pass  # print(f"DEBUG: Head pose - pitch: {pitch:.2f}, yaw: {yaw:.2f}, roll: {roll:.2f}, direction: {head_direction}")  # Commented out for production
+        # Debug print for testing (enabled for troubleshooting)
+        if DEBUG_MODE and calibrated_angles is not None:
+            print(f"DEBUG: Head pose - pitch: {pitch:.2f} (offset: {pitch_offset:.2f}), yaw: {yaw:.2f} (offset: {yaw_offset:.2f}), roll: {roll:.2f} (offset: {roll_offset:.2f}), direction: {head_direction}")
 
     return frame, head_direction

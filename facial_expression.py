@@ -80,10 +80,10 @@ def detect_faces_improved(gray_frame):
     return faces
 
 # Constants for facial expression detection
-BROW_MOVEMENT_THRESHOLD = 3.0  # Threshold for detecting significant eyebrow movement (lowered for sensitivity)
-SMILE_THRESHOLD = 1.5  # Threshold for detecting smiles (lowered for sensitivity)
-HISTORY_SIZE = 15  # Number of frames to keep in history for smoothing (increased for stability)
-MIN_HISTORY_SIZE = 5  # Minimum frames before making detections
+BROW_MOVEMENT_THRESHOLD = 1.5  # Threshold for detecting significant eyebrow movement (more sensitive)
+SMILE_THRESHOLD = 0.8  # Threshold for detecting smiles (more sensitive)
+HISTORY_SIZE = 8  # Number of frames to keep in history for smoothing (reduced for responsiveness)
+MIN_HISTORY_SIZE = 3  # Minimum frames before making detections (reduced for faster response)
 
 # Initialize history for facial measurements
 brow_distance_history = deque(maxlen=HISTORY_SIZE)
@@ -125,6 +125,33 @@ def detect_smile(mouth_ar, avg_mouth_ar):
     """Detect if the person is smiling"""
     return mouth_ar > avg_mouth_ar + SMILE_THRESHOLD
 
+def detect_immediate_expressions(landmarks):
+    """Detect expressions immediately without history dependency"""
+    # Calculate mouth curvature for smile detection
+    left_corner = np.array([landmarks.part(48).x, landmarks.part(48).y])
+    right_corner = np.array([landmarks.part(54).x, landmarks.part(54).y])
+
+    # Calculate mouth center
+    mouth_center = (left_corner + right_corner) / 2
+
+    # Calculate if corners are higher than center (smile indicator)
+    corner_height = (left_corner[1] + right_corner[1]) / 2
+    mouth_curvature = mouth_center[1] - corner_height
+
+    # Calculate eyebrow height relative to eyes
+    left_brow_y = np.mean([landmarks.part(i).y for i in range(17, 22)])
+    right_brow_y = np.mean([landmarks.part(i).y for i in range(22, 27)])
+    left_eye_y = np.mean([landmarks.part(i).y for i in range(36, 42)])
+    right_eye_y = np.mean([landmarks.part(i).y for i in range(42, 48)])
+
+    brow_eye_distance = np.mean([left_eye_y - left_brow_y, right_eye_y - right_brow_y])
+
+    # Immediate detection thresholds
+    is_smiling_immediate = mouth_curvature > 2.0  # Positive curvature indicates smile
+    is_confused_immediate = brow_eye_distance > 25  # High eyebrows indicate confusion
+
+    return is_smiling_immediate, is_confused_immediate, mouth_curvature, brow_eye_distance
+
 def process_facial_expression(frame):
     """Process the frame to detect facial expressions"""
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -157,30 +184,54 @@ def process_facial_expression(frame):
             # Detect expressions
             is_confused = detect_confusion(brow_distance, avg_brow_distance)
             is_smiling = detect_smile(mouth_ar, avg_mouth_ar)
-        elif len(brow_distance_history) > 0 and len(mouth_aspect_ratio_history) > 0:
-            # Use current values as baseline for early detection
-            avg_brow_distance = brow_distance
-            avg_mouth_ar = mouth_ar
-            
-            # Draw facial landmarks for eyebrows and mouth
-            for i in range(17, 27):  # Eyebrows
-                x, y = landmarks.part(i).x, landmarks.part(i).y
-                cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
-            
-            for i in range(48, 68):  # Mouth
-                x, y = landmarks.part(i).x, landmarks.part(i).y
-                cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
-            
-            # Draw measurements on frame with more debug info
-            cv2.putText(frame, f"Brow Dist: {brow_distance:.2f} (Avg: {avg_brow_distance:.2f})",
-                       (face.left(), face.bottom() + 100),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
-            cv2.putText(frame, f"Mouth AR: {mouth_ar:.2f} (Avg: {avg_mouth_ar:.2f})",
-                       (face.left(), face.bottom() + 120),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
-            cv2.putText(frame, f"Confused: {is_confused}, Smiling: {is_smiling}",
-                       (face.left(), face.bottom() + 140),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+        else:
+            # Use immediate detection with baseline values for faster response
+            if len(brow_distance_history) > 0:
+                avg_brow_distance = np.mean(brow_distance_history)
+            else:
+                avg_brow_distance = brow_distance
+
+            if len(mouth_aspect_ratio_history) > 0:
+                avg_mouth_ar = np.mean(mouth_aspect_ratio_history)
+            else:
+                avg_mouth_ar = mouth_ar
+
+            # More immediate detection with lower thresholds
+            is_confused = brow_distance > avg_brow_distance + (BROW_MOVEMENT_THRESHOLD * 0.5)
+            is_smiling = mouth_ar > avg_mouth_ar + (SMILE_THRESHOLD * 0.5)
+
+        # Use immediate detection as backup/enhancement
+        is_smiling_immediate, is_confused_immediate, mouth_curvature, brow_eye_distance = detect_immediate_expressions(landmarks)
+
+        # Combine both methods for better accuracy
+        is_confused = is_confused or is_confused_immediate
+        is_smiling = is_smiling or is_smiling_immediate
+
+        # Draw facial landmarks for eyebrows and mouth
+        for i in range(17, 27):  # Eyebrows
+            x, y = landmarks.part(i).x, landmarks.part(i).y
+            cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
+
+        for i in range(48, 68):  # Mouth
+            x, y = landmarks.part(i).x, landmarks.part(i).y
+            cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
+
+        # Draw measurements on frame with more debug info
+        cv2.putText(frame, f"Brow Dist: {brow_distance:.2f} (Avg: {avg_brow_distance:.2f})",
+                   (face.left(), face.bottom() + 100),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+        cv2.putText(frame, f"Mouth AR: {mouth_ar:.2f} (Avg: {avg_mouth_ar:.2f})",
+                   (face.left(), face.bottom() + 120),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+        cv2.putText(frame, f"Immediate: Curve:{mouth_curvature:.1f} Brow:{brow_eye_distance:.1f}",
+                   (face.left(), face.bottom() + 140),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+        cv2.putText(frame, f"Confused: {is_confused}, Smiling: {is_smiling}",
+                   (face.left(), face.bottom() + 160),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+
+        # Debug print for testing
+        # print(f"DEBUG: Expression - confused: {is_confused}, smiling: {is_smiling}, curvature: {mouth_curvature:.2f}, brow_dist: {brow_eye_distance:.2f}")  # Commented out for production
     
     # Determine overall expression
     expression = "Neutral"

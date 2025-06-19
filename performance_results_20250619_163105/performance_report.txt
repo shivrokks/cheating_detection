@@ -1,0 +1,89 @@
+CHEATING DETECTION SYSTEM - PERFORMANCE ANALYSIS REPORT
+============================================================
+
+Monitoring Duration: 600 seconds
+Total Samples Collected: 565
+Report Generated: 2025-06-19 16:41:27
+
+BASELINE METRICS:
+--------------------
+cpu_baseline: 5.34
+memory_baseline: 39.17
+available_memory: 9.11368179321289
+total_memory: 15.02633285522461
+cpu_count: 16
+cpu_freq: 1711.6330625
+
+PERFORMANCE SUMMARY:
+--------------------
+
+CPU_PERCENT:
+  mean: 12.96
+  median: 13.50
+  std: 4.53
+  min: 3.00
+  max: 26.40
+  percentile_25: 9.40
+  percentile_75: 16.90
+  percentile_95: 18.88
+
+MEMORY_USAGE:
+  mean: 7.11
+  median: 7.17
+  std: 0.25
+  min: 5.95
+  max: 7.38
+  percentile_25: 7.16
+  percentile_75: 7.19
+  percentile_95: 7.23
+
+MEMORY_PERCENT:
+  mean: 47.31
+  median: 47.70
+  std: 1.63
+  min: 39.60
+  max: 49.10
+  percentile_25: 47.70
+  percentile_75: 47.90
+  percentile_95: 48.10
+
+FPS:
+  mean: 26.52
+  median: 26.52
+  std: 0.00
+  min: 26.52
+  max: 26.52
+  percentile_25: 26.52
+  percentile_75: 26.52
+  percentile_95: 26.52
+
+FRAME_PROCESSING_TIME:
+  mean: 29.60
+  median: 29.60
+  std: 0.00
+  min: 29.60
+  max: 29.60
+  percentile_25: 29.60
+  percentile_75: 29.60
+  percentile_95: 29.60
+
+GPU_USAGE:
+  mean: 0.00
+  median: 0.00
+  std: 0.00
+  min: 0.00
+  max: 0.00
+  percentile_25: 0.00
+  percentile_75: 0.00
+  percentile_95: 0.00
+
+PERFORMACE INSIGHTS:
+--------------------
+• High CPU usage detected: 13.0% (baseline: 5.3%)
+
+Files Generated:
+• performance_timeseries.png - Time series performance graphs
+• resource_heatmap.png - Resource utilization heatmap
+• performance_distribution.png - Performance distribution analysis
+• performance_report.json - Detailed performance data
+• performance_report.txt - This human-readable report

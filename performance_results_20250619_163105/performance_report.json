@@ -1,0 +1,77 @@
+{
+  "monitoring_duration": 600,
+  "total_samples": 565,
+  "baseline_metrics": {
+    "cpu_baseline": 5.34,
+    "memory_baseline": 39.17,
+    "available_memory": 9.11368179321289,
+    "total_memory": 15.02633285522461,
+    "cpu_count": 16,
+    "cpu_freq": 1711.6330625
+  },
+  "performance_summary": {
+    "cpu_percent": {
+      "mean": 12.959823008849556,
+      "median": 13.5,
+      "std": 4.5266053197607725,
+      "min": 3.0,
+      "max": 26.4,
+      "percentile_25": 9.4,
+      "percentile_75": 16.9,
+      "percentile_95": 18.879999999999995
+    },
+    "memory_usage": {
+      "mean": 7.108252074655178,
+      "median": 7.1749725341796875,
+      "std": 0.2452932374510114,
+      "min": 5.9527587890625,
+      "max": 7.378059387207031,
+      "percentile_25": 7.161109924316406,
+      "percentile_75": 7.191959381103516,
+      "percentile_95": 7.229944610595703
+    },
+    "memory_percent": {
+      "mean": 47.307610619469024,
+      "median": 47.7,
+      "std": 1.6314374325025196,
+      "min": 39.6,
+      "max": 49.1,
+      "percentile_25": 47.7,
+      "percentile_75": 47.9,
+      "percentile_95": 48.1
+    },
+    "fps": {
+      "mean": 26.523585398772155,
+      "median": 26.523585398772155,
+      "std": 0.0,
+      "min": 26.523585398772155,
+      "max": 26.523585398772155,
+      "percentile_25": 26.523585398772155,
+      "percentile_75": 26.523585398772155,
+      "percentile_95": 26.523585398772155
+    },
+    "frame_processing_time": {
+      "mean": 29.60015893759505,
+      "median": 29.600158937595044,
+      "std": 7.105427357601002e-15,
+      "min": 29.600158937595044,
+      "max": 29.600158937595044,
+      "percentile_25": 29.600158937595044,
+      "percentile_75": 29.600158937595044,
+      "percentile_95": 29.600158937595044
+    },
+    "gpu_usage": {
+      "mean": 0.0,
+      "median": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0,
+      "percentile_25": 0.0,
+      "percentile_75": 0.0,
+      "percentile_95": 0.0
+    }
+  },
+  "insights": [
+    "High CPU usage detected: 13.0% (baseline: 5.3%)"
+  ]
+}

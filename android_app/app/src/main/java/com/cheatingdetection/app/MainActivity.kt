@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val PREFS_NAME = "CheatingDetectionPrefs"
         const val KEY_SERVER_URL = "server_url"
-        const val DEFAULT_SERVER_URL = "https://7fad-103-180-45-255.ngrok-free.app"
+        const val DEFAULT_SERVER_URL = "https://fbb2-103-180-45-255.ngrok-free.app"
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -1,7 +1,5 @@
 package com.cheatingdetection.app
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
@@ -12,7 +10,6 @@ import android.util.Base64
 import android.util.Log
 import android.view.View
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -50,16 +47,10 @@ class CameraActivity : AppCompatActivity() {
     // Detection state
     private var isDetectionActive = false
     private var lastFrameTime = 0L
-    private val frameInterval = 1000L // Send frame every 1 second
-
-    // Audio detection
-    private lateinit var audioDetector: AudioDetector
-    private var isTalking = false
-    private var currentAudioLevel = 0.0
-
+    private val frameInterval = 2000L // Send frame every 2 seconds to reduce server load
+    
     companion object {
         private const val TAG = "CameraActivity"
-        private const val REQUEST_AUDIO_PERMISSION = 200
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,21 +71,10 @@ class CameraActivity : AppCompatActivity() {
         
         // Initialize camera executor
         cameraExecutor = Executors.newSingleThreadExecutor()
-
-        // Initialize audio detector
-        audioDetector = AudioDetector(this)
-        audioDetector.onAudioDetected = { talking, audioLevel ->
-            isTalking = talking
-            currentAudioLevel = audioLevel
-            Log.d(TAG, "Audio detected - Talking: $talking, Level: $audioLevel")
-        }
-
+        
         setupUI()
         startCamera()
         connectWebSocket()
-
-        // Request audio permission if needed
-        checkAudioPermission()
     }
     
     private fun setupUI() {
@@ -215,51 +195,12 @@ class CameraActivity : AppCompatActivity() {
         }
     }
     
-    private fun checkAudioPermission() {
-        if (!audioDetector.hasAudioPermission()) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                REQUEST_AUDIO_PERMISSION
-            )
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        when (requestCode) {
-            REQUEST_AUDIO_PERMISSION -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "Audio permission granted")
-                } else {
-                    Log.w(TAG, "Audio permission denied - audio detection will be disabled")
-                    Toast.makeText(this, "Audio permission required for talking detection", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
-
     private fun startDetection() {
         isDetectionActive = true
         binding.buttonToggleDetection.text = "Stop Detection"
         binding.buttonToggleDetection.setBackgroundColor(
             ContextCompat.getColor(this, android.R.color.holo_red_dark)
         )
-
-        // Start audio detection if permission is granted
-        if (audioDetector.hasAudioPermission()) {
-            if (audioDetector.startDetection()) {
-                Log.d(TAG, "Audio detection started")
-            } else {
-                Log.w(TAG, "Failed to start audio detection")
-            }
-        }
-
         updateConnectionStatus("Detection started")
     }
     
@@ -269,12 +210,6 @@ class CameraActivity : AppCompatActivity() {
         binding.buttonToggleDetection.setBackgroundColor(
             ContextCompat.getColor(this, android.R.color.holo_green_dark)
         )
-
-        // Stop audio detection
-        audioDetector.stopDetection()
-        isTalking = false
-        currentAudioLevel = 0.0
-
         updateConnectionStatus("Detection stopped")
     }
     
@@ -332,11 +267,16 @@ class CameraActivity : AppCompatActivity() {
         details.append("👁️ Gaze: ${results.optString("gaze_direction", "Unknown")}\n")
         details.append("🗣️ Head: ${results.optString("head_direction", "Unknown")}\n")
         details.append("📱 Mobile: ${if (results.optBoolean("mobile_detected")) "Detected" else "None"}\n")
-        details.append("🗣️ Talking: ${if (isTalking) "Yes" else "No"}\n") // Use local audio detection
+        details.append("🗣️ Talking: ${if (results.optBoolean("is_talking")) "Yes" else "No"}\n")
         details.append("😊 Expression: ${results.optString("facial_expression", "Unknown")}\n")
         details.append("👥 People: ${results.optInt("person_count", 1)}\n")
-        details.append("🎤 Audio: ${if (isTalking) "Talking" else "Silent"} (Level: ${String.format("%.0f", currentAudioLevel)})\n")
-
+        
+        val audioResult = results.optJSONObject("audio_result")
+        if (audioResult != null) {
+            val audioSuspicious = audioResult.optBoolean("is_suspicious", false)
+            details.append("🎤 Audio: ${if (audioSuspicious) "Suspicious" else "Normal"}\n")
+        }
+        
         binding.textViewDetailedResults.text = details.toString()
     }
     
@@ -359,12 +299,10 @@ class CameraActivity : AppCompatActivity() {
                 val bitmap = imageProxyToBitmap(imageProxy)
                 val base64Image = bitmapToBase64(bitmap)
                 
-                // Send frame via WebSocket with local audio detection data
+                // Send frame via WebSocket
                 val frameData = JSONObject().apply {
                     put("image", base64Image)
                     put("timestamp", currentTime)
-                    put("is_talking", isTalking) // Include local talking detection
-                    put("audio_level", currentAudioLevel) // Include audio level
                 }
 
                 Log.d(TAG, "Sending frame to server via Socket.IO")
@@ -397,22 +335,45 @@ class CameraActivity : AppCompatActivity() {
 
         val yuvImage = YuvImage(nv21, ImageFormat.NV21, imageProxy.width, imageProxy.height, null)
         val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(Rect(0, 0, yuvImage.width, yuvImage.height), 70, out)
+        // Use higher quality for better face detection
+        yuvImage.compressToJpeg(Rect(0, 0, yuvImage.width, yuvImage.height), 85, out)
         val imageBytes = out.toByteArray()
-        val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-        return bitmap ?: throw RuntimeException("Failed to decode image to bitmap")
+        var bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            ?: throw RuntimeException("Failed to decode image to bitmap")
+
+        // Handle rotation for front camera (front camera is usually mirrored)
+        val matrix = android.graphics.Matrix()
+        matrix.preScale(-1.0f, 1.0f) // Mirror horizontally for front camera
+        bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+
+        Log.d(TAG, "Converted image: ${bitmap.width}x${bitmap.height}")
+        return bitmap
     }
     
     private fun bitmapToBase64(bitmap: Bitmap): String {
+        // Resize bitmap to ensure it's large enough for face detection
+        val minSize = 640
+        val scaledBitmap = if (bitmap.width < minSize || bitmap.height < minSize) {
+            val scale = maxOf(minSize.toFloat() / bitmap.width, minSize.toFloat() / bitmap.height)
+            val newWidth = (bitmap.width * scale).toInt()
+            val newHeight = (bitmap.height * scale).toInt()
+            Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+        } else {
+            bitmap
+        }
+
         val byteArrayOutputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, byteArrayOutputStream)
+        // Use higher quality for better face detection
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 85, byteArrayOutputStream)
         val byteArray = byteArrayOutputStream.toByteArray()
-        return Base64.encodeToString(byteArray, Base64.DEFAULT)
+
+        Log.d(TAG, "Sending image: ${scaledBitmap.width}x${scaledBitmap.height}, size: ${byteArray.size} bytes")
+
+        return Base64.encodeToString(byteArray, Base64.NO_WRAP)
     }
     
     override fun onDestroy() {
         super.onDestroy()
-        audioDetector.stopDetection()
         cameraExecutor.shutdown()
         socket?.disconnect()
     }
